@@ -1,26 +1,41 @@
 import { NextResponse } from "next/server";
-import { auth } from '@/lib/auth';
+import { auth } from '@/lib/auth-edge';
 import { UserRole } from './lib/auth/roles';
+
+export const config = {
+  matcher: [
+    '/dashboard/:path*',
+    '/api/protected/:path*',
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+  ]
+};
 
 export async function middleware(req: Request) {
   try {
     const session = await auth();
-    
-    // Si no hay sesión y la ruta es protegida, redirigir al login
-    if (!session) {
-      if (req.url.includes('/api/protected') || req.url.includes('/dashboard')) {
+    const isApiRoute = req.url.includes('/api/');
+    const isProtectedRoute = req.url.includes('/dashboard') || req.url.includes('/api/protected');
+
+    // Si no hay sesión y es una ruta protegida, redirigir al login
+    if (!session && isProtectedRoute) {
+      if (isApiRoute) {
         return NextResponse.json(
           { error: 'No autorizado' },
           { status: 401 }
         );
       }
-      return NextResponse.next();
+      return NextResponse.redirect(new URL('/', req.url));
     }
 
-    const userRole = session.user.role as UserRole;
+    // Si hay sesión y es una ruta pública, redirigir al dashboard
+    if (session && !isProtectedRoute && !isApiRoute) {
+      return NextResponse.redirect(new URL('/dashboard', req.url));
+    }
 
     // Verificar permisos para rutas protegidas
-    if (req.url.includes('/api/protected')) {
+    if (session && req.url.includes('/api/protected')) {
+      const userRole = session.user.role as UserRole;
+
       if (req.url.includes('/api/protected/admin') && userRole !== UserRole.ADMIN) {
         return NextResponse.json(
           { error: 'Acceso denegado' },
@@ -51,12 +66,4 @@ export async function middleware(req: Request) {
       { status: 500 }
     );
   }
-}
-
-export const config = {
-  matcher: [
-    '/api/protected/:path*',
-    '/dashboard/:path*',
-    '/profile/:path*'
-  ]
-}; 
+} 

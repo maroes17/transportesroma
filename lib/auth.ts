@@ -1,27 +1,15 @@
 import NextAuth from 'next-auth';
-import type { DefaultSession, NextAuthConfig, User as NextAuthUser } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import { connectDB } from '@/lib/db';
+import { compare } from 'bcryptjs';
+import { connectDB } from './db';
 import { User } from '@/models/User';
-import bcrypt from 'bcryptjs';
+import { NextAuthConfig } from 'next-auth';
 import { UserRole } from './auth/roles';
 
-declare module 'next-auth' {
-  interface Session extends DefaultSession {
-    user: {
-      id: string;
-      role: UserRole;
-    } & DefaultSession['user']
-  }
-}
-
-interface JWT {
-  id?: string;
-  role?: UserRole;
-}
-
-interface CustomUser extends NextAuthUser {
+interface CustomUser {
   id: string;
+  email: string;
+  name: string;
   role: UserRole;
 }
 
@@ -35,59 +23,66 @@ export const authConfig: NextAuthConfig = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error('Credenciales inválidas');
+          throw new Error('Por favor ingrese su correo electrónico y contraseña');
         }
 
-        await connectDB();
+        try {
+          await connectDB();
+          const user = await User.findOne({ email: credentials.email });
 
-        const user = await User.findOne({ email: credentials.email });
-        if (!user) {
-          throw new Error('Usuario no encontrado');
+          if (!user) {
+            throw new Error('No existe una cuenta con este correo electrónico');
+          }
+
+          const isPasswordValid = await compare(
+            credentials.password as string,
+            user.password as string
+          );
+
+          if (!isPasswordValid) {
+            throw new Error('Contraseña incorrecta');
+          }
+
+          return {
+            id: user._id.toString(),
+            email: user.email,
+            name: user.name,
+            role: user.role
+          } as CustomUser;
+        } catch (error) {
+          console.error('Error en la autenticación:', error);
+          if (error instanceof Error) {
+            throw new Error(error.message);
+          }
+          throw new Error('Error al iniciar sesión');
         }
-
-        const isValid = await bcrypt.compare(credentials.password as string, user.password as string);
-        if (!isValid) {
-          throw new Error('Contraseña incorrecta');
-        }
-
-        return {
-          id: user._id.toString(),
-          email: user.email,
-          name: user.name,
-          role: user.role as UserRole
-        };
       }
     })
   ],
+  pages: {
+    signIn: '/',
+  },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
         const customUser = user as CustomUser;
-        return {
-          ...token,
-          id: customUser.id,
-          role: customUser.role
-        };
+        token.id = customUser.id;
+        token.role = customUser.role;
       }
       return token;
     },
-    async session({ session, token }: { session: any; token: JWT }) {
-      if (token) {
-        session.user.id = token.id || '';
-        session.user.role = token.role || UserRole.USER;
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.id = token.id as string;
+        session.user.role = token.role as UserRole;
       }
       return session;
     }
   },
-  pages: {
-    signIn: '/',
-  },
   session: {
     strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60, // 30 días
   },
   secret: process.env.NEXTAUTH_SECRET,
-  debug: process.env.NODE_ENV === 'development',
 };
 
 export const { handlers: { GET, POST }, auth, signIn, signOut } = NextAuth(authConfig); 

@@ -3,44 +3,46 @@ import Image from 'next/image';
 
 export default function Home() {
   return (
-    <main className="min-h-screen relative">
-      {/* Imagen de fondo */}
-      <div className="absolute inset-0 z-0">
+    <main className="min-h-screen flex flex-col md:flex-row">
+      {/* Sección izquierda - Formulario de login */}
+      <div className="w-full md:w-1/3 bg-gradient-to-b from-white to-gray-50 p-8 md:p-12 flex flex-col justify-between">
+        <div className="max-w-sm mx-auto w-full space-y-10">
+          {/* Logo y título */}
+          <div className="text-center space-y-6">
+            <div className="relative w-48 h-20 mx-auto">
+              <Image
+                src="/images/logos/LogoRomanesco.png"
+                alt="Transportes Roma"
+                fill
+                className="object-contain"
+                priority
+              />
+            </div>
+            <h1 className="text-2xl md:text-3xl font-bold text-blue-900 leading-tight">
+              ¡Te damos la bienvenida a la Gestión de Flotas!
+            </h1>
+          </div>
+
+          {/* Formulario de login */}
+          <LoginForm />
+        </div>
+
+        {/* Copyright */}
+        <p className="text-center text-gray-500 text-sm mt-8">
+          Creado por empresa Transportes Romanesco
+        </p>
+      </div>
+
+      {/* Sección derecha - Imagen de fondo */}
+      <div className="w-full md:w-2/3 relative hidden md:block">
         <Image
-          src="/images/backgrounds/truck-background.jpg"
-          alt="Camión en la carretera"
+          src="/images/backgrounds/bg_sesion.jpg"
+          alt="Carretera con vehículos"
           fill
           className="object-cover"
           priority
           quality={100}
         />
-        {/* Overlay para mejorar la legibilidad */}
-        <div className="absolute inset-0 bg-black/50" />
-      </div>
-
-      {/* Contenido */}
-      <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          {/* Logo */}
-          <div className="mb-8 text-center">
-            <Image
-              src="/images/logos/logo.png"
-              alt="Transportes Roma"
-              width={200}
-              height={80}
-              className="mx-auto"
-              priority
-            />
-          </div>
-
-          {/* Formulario de login */}
-          <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-xl p-8">
-            <h1 className="text-2xl font-bold text-gray-900 mb-6 text-center">
-              Bienvenido a Transportes Roma
-            </h1>
-            <LoginForm />
-          </div>
-        </div>
       </div>
     </main>
   );

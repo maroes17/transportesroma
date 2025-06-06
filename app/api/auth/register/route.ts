@@ -39,13 +39,13 @@ export async function POST(req: Request) {
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return NextResponse.json(
-        { error: "El usuario ya existe" },
+        { error: "Ya existe un usuario con este correo electrónico" },
         { status: 400 }
       );
     }
 
     // Encriptar contraseña
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 12);
 
     // Crear el nuevo usuario
     const user = await User.create({
@@ -64,8 +64,36 @@ export async function POST(req: Request) {
     );
   } catch (error) {
     console.error("Error en el registro:", error);
+
+    if (error instanceof Error) {
+      // Error de conexión a MongoDB
+      if (error.message.includes("Could not connect to any servers")) {
+        return NextResponse.json(
+          { 
+            error: "Error de conexión con la base de datos. Por favor, verifica tu conexión a internet y la configuración de MongoDB Atlas.",
+            details: "Asegúrate de que tu IP esté en la lista blanca de MongoDB Atlas"
+          },
+          { status: 503 }
+        );
+      }
+
+      // Error de validación de Mongoose
+      if (error.name === "ValidationError") {
+        return NextResponse.json(
+          { 
+            error: "Error de validación",
+            details: error.message 
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     return NextResponse.json(
-      { error: "Error al registrar el usuario" },
+      { 
+        error: "Error al registrar el usuario",
+        details: "Por favor, intenta nuevamente más tarde"
+      },
       { status: 500 }
     );
   }
